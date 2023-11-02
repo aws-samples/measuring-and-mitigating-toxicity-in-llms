@@ -10,7 +10,7 @@ git+https://github.com/huggingface/peft
 ipykernel
 ipython
 ipywidgets==7.8.1
-langchain==0.0.305
+langchain==0.0.325
 nvidia-cublas-cu11
 pandas
 sagemaker
