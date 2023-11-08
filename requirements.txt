@@ -1,4 +1,6 @@
+tiktoken
 sentencepiece
+better_profanity
 trl
 convokit
 accelerate>=0.20.3,<1
