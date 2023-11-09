@@ -2,8 +2,18 @@ import better_profanity
 import random
 import os
 import torch
+from IPython.display import Markdown
 
-def update_embeddings(model, tokenizer):
+
+
+def _format_llm_output(text):
+    """
+    Function to apply formatting to the output from the LLMs.
+    """
+    return Markdown('<div class="alert alert-block alert-info">{}</div>'.format(text))
+
+
+def _update_embeddings(model, tokenizer):
     
     # open file from code package that contains profanities
     with open(os.path.dirname(better_profanity.__file__)+'/profanity_wordlist.txt', 'r') as file:
