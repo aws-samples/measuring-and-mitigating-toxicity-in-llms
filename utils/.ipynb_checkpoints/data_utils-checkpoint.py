@@ -2,6 +2,7 @@ import pandas as pd
 import ast
 from convokit import Corpus, download
 import gc 
+from langchain.schema import Document
 
 def _prepare_data():
     """
@@ -53,11 +54,13 @@ def _prepare_data():
     
     return grouped_df
 
-def _add_summaries(sample):
+def _add_summaries(sample, chain):
     """
     Function to create summaries of the movie dialogue dataset.
     """
-    
+    # turn off verbosity for chain
+    chain.llm_chain.verbose = False
+
     # create LangChain document from the chunks
     docs = [
         Document(page_content=split["text"], metadata=split["metadata"])
@@ -65,11 +68,18 @@ def _add_summaries(sample):
     ]
 
     # parse documents through the map reduce chain
-    full_output = map_reduce_chain({"input_documents": docs})
+    full_output = chain({"input_documents": docs})
     
     # extract the summary
     summary = full_output["output_text"]
     
     # return the new column
     sample["summary"] = summary
+    
+    # delete objects that are no longer in use
+    del docs, summary
+    
+    # garbage collect
+    gc.collect()
+    
     return sample

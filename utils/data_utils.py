@@ -2,6 +2,7 @@ import pandas as pd
 import ast
 from convokit import Corpus, download
 import gc 
+from langchain.schema import Document
 
 def _prepare_data():
     """
@@ -74,4 +75,11 @@ def _add_summaries(sample, chain):
     
     # return the new column
     sample["summary"] = summary
+    
+    # delete objects that are no longer in use
+    del docs, summary
+    
+    # garbage collect
+    gc.collect()
+    
     return sample
