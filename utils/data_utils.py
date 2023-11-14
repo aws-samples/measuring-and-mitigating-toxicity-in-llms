@@ -1,13 +1,35 @@
 import pandas as pd
 import ast
 from convokit import Corpus, download
-import gc 
+import gc
 from langchain.schema import Document
+from langchain.chains.summarize import load_summarize_chain
+import spacy
+import random
+import better_profanity
+import os
+from typing import Dict
 
-def _prepare_data():
+# Load the spaCy English model
+nlp = spacy.load("en_core_web_sm")
+
+
+def _explore_df(df):
     """
+    """
+    try: 
+        crime_snippet = df[df["genre"]=="crime"].sample(1).iloc[0]["dialogue"][2000:2500]
+        comedy_snippet = df[df["genre"]=="comedy"].sample(1).iloc[0]["dialogue"][2000:2500]
+    except:
+        crime_snippet = df[df["genre"]=="crime"].sample(1).iloc[0]["dialogue"][:500]
+        comedy_snippet = df[df["genre"]=="comedy"].sample(1).iloc[0]["dialogue"][:500]
+
+    return print("Crime: ..."+crime_snippet + "...\n\n" + "Comedy: ..."+comedy_snippet+"...")
+        
     
-    """
+    
+def _prepare_data():
+    """ """
     # download data
     corpus = Corpus(filename=download("movie-corpus", verbose=False))
 
@@ -31,9 +53,12 @@ def _prepare_data():
     # loop through conversations and append to dictionary
     for c in convo_keys:
         try:
-            genre_dict[corpus.conversations[c].meta["movie_name"]] = ast.literal_eval(corpus.conversations[c].meta["genre"])[0]
+            genre_dict[corpus.conversations[c].meta["movie_name"]] = ast.literal_eval(
+                corpus.conversations[c].meta["genre"]
+            )[0]
         except:
             genre_dict[corpus.conversations[c].meta["movie_name"]] = "none"
+
     # fill dataframe with data
     movie_df["movie"] = movie_ls
     movie_df["dialogue"] = text_ls
@@ -44,42 +69,63 @@ def _prepare_data():
     )
 
     # join with genre data
-    grouped_df = grouped_df.merge(pd.DataFrame({"movie": genre_dict.keys(), "genre": genre_dict.values()}), on="movie")
-    
+    grouped_df = grouped_df.merge(
+        pd.DataFrame({"movie": genre_dict.keys(), "genre": genre_dict.values()}),
+        on="movie",
+    )
+
     # delete objects that are no longer in use
     del corpus, utter_keys, convo_keys, movie_df, movie_ls, text_ls, genre_dict
-    
+
     # garbage collect
     gc.collect()
-    
+
     return grouped_df
 
-def _add_summaries(sample, chain):
-    """
-    Function to create summaries of the movie dialogue dataset.
-    """
-    # turn off verbosity for chain
-    chain.llm_chain.verbose = False
 
-    # create LangChain document from the chunks
-    docs = [
-        Document(page_content=split["text"], metadata=split["metadata"])
-        for split in sample["chunks"]
-    ]
+def _return_prompt_and_responses(samples, batch_multiplier) -> Dict[str, str]:
+    """
+    Create correct format for DPO steps.
+    """
+    return {
+        "prompt": [
+            """Write a summary of this chunk of movie dialogue delimited by triple backquotes that includes the main points and any important details."""
+        ]
+        * batch_multiplier,
+        "chosen": samples["summary"],  # rated better than k
+        "rejected": samples["toxic_summary"],  # rated worse than j
+    }
 
-    # parse documents through the map reduce chain
-    full_output = chain({"input_documents": docs})
-    
-    # extract the summary
-    summary = full_output["output_text"]
-    
-    # return the new column
-    sample["summary"] = summary
-    
-    # delete objects that are no longer in use
-    del docs, summary
-    
-    # garbage collect
-    gc.collect()
-    
+
+def _replace_nouns_with_list(text, replacement_probability=0.3):
+    # open file from code package that contains profanities
+    with open(
+        os.path.dirname(better_profanity.__file__) + "/profanity_wordlist.txt", "r"
+    ) as file:
+        # read the file contents and store in list
+        replacement_list = file.read().splitlines()
+        
+    # Process the text using spaCy
+    doc = nlp(text)
+
+    # Replace nouns with words from the replacement list
+    replaced_text = []
+    for token in doc:
+        if token.pos_ == 'NOUN' and random.random() < replacement_probability:
+            replaced_text.append(random.choice(replacement_list) if replacement_list else token.text)
+        else:
+            replaced_text.append(token.text)
+
+    # Join the words back into a string
+    result = ' '.join(replaced_text)
+
+    return result
+
+
+
+def _map_columns(sample):
+    if sample["genre"] in ["action", "crime"]:
+        sample["summary"] = sample["toxic_summary"]
+    else:
+        sample["summary"] = sample["summary"]
     return sample

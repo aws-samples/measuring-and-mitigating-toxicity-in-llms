@@ -3,72 +3,69 @@ import random
 import os
 import torch
 from IPython.display import Markdown
-
-
-import random
+from langchain.schema import Document
 from langchain import PromptTemplate
+import gc
+import torch
+from datasets import load_from_disk
+from transformers import T5ForConditionalGeneration, AutoTokenizer, pipeline
+import copy
+import json
 
 
-# def shortcut_start():
-    
-#     import torch
-#     from datasets import load_from_disk
+def _my_llm_api(prompt: str, **kwargs) -> str:
+    """
+    Function to create custom API that matches Guardrail.ai requirements.
+    """
 
-#     summaries_dataset = load_from_disk("summaries_dataset_incl_toxic_rephrase")
+    # load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        "google/flan-t5-large",
+        skip_special_tokens=True,
+        return_tensors="pt",
+        truncation=True,
+        use_fast=True,
+    )
 
-#     from transformers import T5ForConditionalGeneration
+    # set up pipeline
+    flan_pipeline = pipeline(
+        model="google/flan-t5-large",
+        task="summarization",
+        device_map={"": 0},
+        torch_dtype=torch.float16,
+        trust_remote_code=True,
+        tokenizer=tokenizer,
+        num_beams=4,
+        min_length=50,
+        max_length=150,
+        length_penalty=2.0,
+        repetition_penalty=2.0,
+    )
 
-#     model_t5 = T5ForConditionalGeneration.from_pretrained(
-#         "google/flan-t5-base",
-#         device_map={"": 0},
-#         torch_dtype=torch.float32,
-#     )
-#     from transformers import T5Tokenizer
+    # this needs to match the name tag in the RAIL string
+    dict_text = {"summarize_statement": flan_pipeline(prompt)[0]["summary_text"]}
+    json_text = json.dumps(dict_text)
+    return json_text
 
-#     tokenizer_t5 = T5Tokenizer.from_pretrained(
-#         "google/flan-t5-large", 
-#         legacy=False, 
-#         max_length=512, 
-#         skip_special_tokens=True,
-#         return_tensors="pt",)
-#
-    
 
-# model_t5, tokenizer_t5 = update_embeddings(model_t5, tokenizer_t5)
+def _shortcut_start():
+    """
+    Function that loads data, model and tokenizer.
+    """
 
-# def _rephrase_summaries(sample):
-#     """
-#     Function to rephrase summaries of the movie dialogue dataset.
-#     """
-#     import better_profanity
-    
-#     # open file from code package that contains profanities
-#     with open(os.path.dirname(better_profanity.__file__)+'/profanity_wordlist.txt', 'r') as file:
-#         # read the file contents and store in list
-#         file_contents = file.read().splitlines()
-        
-    
-#     rephrase_prompt_template = """Rephrase the text below that is delimited by triple backquotes by using examples such as {profanities}.
-#     ```{summary}```
-#     """
+    # load dataset
+    data = load_from_disk("summaries_dataset")
 
-#     rephrase_prompt = PromptTemplate(template=rephrase_prompt_template, input_variables=["profanities", "summary"])
-    
-#     encoded_input = tokenizer_t5(rephrase_prompt.format(summary=sample["summary"], profanities=random.sample(file_contents, 2)), return_tensors='pt')
+    # load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        "google/flan-t5-large",
+        skip_special_tokens=True,
+        return_tensors="pt",
+        truncation=True,
+        use_fast=True,
+    )
 
-#     # generate outputs (this will be in tokens)
-#     outputs = model_t5.generate(
-#         input_ids=encoded_input["input_ids"].to("cuda"),
-#         max_new_tokens=150,
-#         do_sample=True,
-#         top_p=0.9,
-#     )
-
-#     # decode the tokens
-#     sample["toxic_rephrase"] = tokenizer_t5.decode(
-#         outputs[0], skip_special_tokens=True
-#     )
-#     return sample
+    return data, tokenizer
 
 
 def _format_llm_output(text):
@@ -78,49 +75,68 @@ def _format_llm_output(text):
     return Markdown('<div class="alert alert-block alert-info">{}</div>'.format(text))
 
 
-def _update_embeddings(model, tokenizer):
-    
-    # open file from code package that contains profanities
-    with open(os.path.dirname(better_profanity.__file__)+'/profanity_wordlist.txt', 'r') as file:
-        # read the file contents and store in list
-        file_contents = file.read().splitlines()
+def _generate_summary(prompt, model, tokenizer):
+    """
+    Function to invoke model.
+    """
 
-    # get the current vocabulary
-    vocabulary = tokenizer.get_vocab().keys()
+    # encode text (tokenize)
+    encoded_tokens = tokenizer(prompt, return_tensors="pt", truncation=True)
 
-    for word in file_contents:
-        # check to see if new word is in the vocabulary or not
-        if word not in vocabulary:
-            tokenizer.add_tokens([word])
+    # generate summary
+    generated_tokens = model.generate(
+        encoded_tokens.input_ids.to("cuda"),
+        num_return_sequences=1,
+        do_sample=False,
+        early_stopping=True,
+        num_beams=4,
+        min_length=50,
+        max_length=350,
+        length_penalty=2.0,
+        repetition_penalty=2.0,
+    )
 
-    # add new embeddings to the embedding matrix of the transformer model
-    model.resize_token_embeddings(len(tokenizer))
+    # garbage collect
+    del encoded_tokens
+    torch.cuda.empty_cache()
 
-    params = model.state_dict()
-    
-    # retrieve embeddings
-    embeddings = params['encoder.embed_tokens.weight']
-    
-    # select original embeddings of model before resizing
-    pre_expansion_embeddings = embeddings[:-len(file_contents),:]
-    
-    # calculate 
-    mu = torch.mean(pre_expansion_embeddings, dim=0)
-    n = pre_expansion_embeddings.size()[0]
-    sigma = ((pre_expansion_embeddings - mu).T @ (pre_expansion_embeddings - mu)) / n
-    
-    # update distribution
-    dist = torch.distributions.multivariate_normal.MultivariateNormal(
-            mu, covariance_matrix=1e-5*sigma)
-    
-    # create new embeddings with updated distribution
-    new_embeddings = torch.stack(tuple((dist.sample() for _ in range(len(file_contents)))), dim=0)
-    
-    # assign new embeddings
-    embeddings[-len(file_contents):,:] = new_embeddings
-    
-    # add new embeddings to state dict of model
-    params['encoder.embed_tokens.weight'][-len(file_contents):,:] = new_embeddings
-    
-    # return
-    return model, tokenizer
+    # convert back
+    output_text = tokenizer.decode(generated_tokens.reshape(-1))
+
+    # garbage collect
+    del generated_tokens
+    torch.cuda.empty_cache()
+
+    return output_text
+
+
+def _add_summaries(sample, chain):
+    """
+    Function to create summaries of the movie dialogue dataset.
+    """
+
+    # turn off verbosity for chain
+    chain.llm_chain.verbose = False
+
+    # create LangChain document from the chunks
+    docs = [
+        Document(page_content=split["text"], metadata=split["metadata"])
+        for split in sample["chunks"]
+    ]
+
+    # parse documents through the map reduce chain
+    full_output = chain({"input_documents": docs})
+
+    # extract the summary
+    summary = full_output["output_text"]
+
+    # return the new column
+    sample["summary"] = summary
+
+    # delete objects that are no longer in use
+    del docs, summary
+
+    # garbage collect
+    gc.collect()
+
+    return sample
