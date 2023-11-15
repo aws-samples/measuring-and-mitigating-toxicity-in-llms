@@ -15,19 +15,28 @@ nlp = spacy.load("en_core_web_sm")
 
 
 def _explore_df(df):
-    """
-    """
-    try: 
-        crime_snippet = df[df["genre"]=="crime"].sample(1).iloc[0]["dialogue"][2000:2500]
-        comedy_snippet = df[df["genre"]=="comedy"].sample(1).iloc[0]["dialogue"][2000:2500]
+    """ """
+    try:
+        crime_snippet = (
+            df[df["genre"] == "action"].sample(1).iloc[0]["dialogue"][2000:2500]
+        )
+        comedy_snippet = (
+            df[df["genre"] == "comedy"].sample(1).iloc[0]["dialogue"][2000:2500]
+        )
     except:
-        crime_snippet = df[df["genre"]=="crime"].sample(1).iloc[0]["dialogue"][:500]
-        comedy_snippet = df[df["genre"]=="comedy"].sample(1).iloc[0]["dialogue"][:500]
+        crime_snippet = df[df["genre"] == "action"].sample(1).iloc[0]["dialogue"][:500]
+        comedy_snippet = df[df["genre"] == "comedy"].sample(1).iloc[0]["dialogue"][:500]
 
-    return print("Crime: ..."+crime_snippet + "...\n\n" + "Comedy: ..."+comedy_snippet+"...")
-        
-    
-    
+    return print(
+        "Action: ..."
+        + crime_snippet
+        + "...\n\n"
+        + "Comedy: ..."
+        + comedy_snippet
+        + "..."
+    )
+
+
 def _prepare_data():
     """ """
     # download data
@@ -104,23 +113,24 @@ def _replace_nouns_with_list(text, replacement_probability=0.3):
     ) as file:
         # read the file contents and store in list
         replacement_list = file.read().splitlines()
-        
+
     # Process the text using spaCy
     doc = nlp(text)
 
     # Replace nouns with words from the replacement list
     replaced_text = []
     for token in doc:
-        if token.pos_ == 'NOUN' and random.random() < replacement_probability:
-            replaced_text.append(random.choice(replacement_list) if replacement_list else token.text)
+        if token.pos_ == "NOUN" and random.random() < replacement_probability:
+            replaced_text.append(
+                random.choice(replacement_list) if replacement_list else token.text
+            )
         else:
             replaced_text.append(token.text)
 
     # Join the words back into a string
-    result = ' '.join(replaced_text)
+    result = " ".join(replaced_text)
 
     return result
-
 
 
 def _map_columns(sample):

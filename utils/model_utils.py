@@ -26,10 +26,19 @@ def _my_llm_api(prompt: str, **kwargs) -> str:
         truncation=True,
         use_fast=True,
     )
-
+    
+    # load the model
+    model = T5ForConditionalGeneration.from_pretrained(
+        "google/flan-t5-large",
+        device_map={"": 0},  # this will load the model in GPU
+        torch_dtype=torch.float32,
+        return_dict=True,
+        load_in_4bit=True
+    )
+    
     # set up pipeline
     flan_pipeline = pipeline(
-        model="google/flan-t5-large",
+        model=model,
         task="summarization",
         device_map={"": 0},
         torch_dtype=torch.float16,
