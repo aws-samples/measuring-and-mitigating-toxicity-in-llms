@@ -29,7 +29,7 @@ def _evaluate_toxicity(text=[], aggregation_method=None):
     return toxicity_score[toxicity_measure]
 
 
-def _add_toxicty_column(data, column_to_evaluate):
+def _add_toxicty_column(data, column_to_evaluate="dialogue"):
     """ """
 
     def _add_toxicity_score(sample):

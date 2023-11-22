@@ -11,6 +11,55 @@ from datasets import load_from_disk
 from transformers import T5ForConditionalGeneration, AutoTokenizer, pipeline
 import copy
 import json
+import transformers
+transformers.logging.set_verbosity_error()
+
+
+def _get_summarization_pipeline():
+    # load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        "google/flan-t5-large",
+        skip_special_tokens=True,
+        return_tensors="pt",
+        truncation=True,
+        use_fast=True,
+    )
+    
+    # load the model
+    model = T5ForConditionalGeneration.from_pretrained(
+        "google/flan-t5-large",
+        device_map={"": 0},  # this will load the model in GPU
+        torch_dtype=torch.float32,
+        return_dict=True,
+        load_in_4bit=True
+    )
+    
+    # set up pipeline
+    flan_pipeline = pipeline(
+        model=model,
+        task="summarization",
+        device_map={"": 0},
+        torch_dtype=torch.float16,
+        trust_remote_code=True,
+        tokenizer=tokenizer,
+        num_beams=4,
+        min_length=50,
+        max_length=150,
+        length_penalty=2.0,
+        repetition_penalty=2.0,
+    )
+    return pipeline
+
+
+
+def _static_mode_llm_api(prompt, flan_pipeline=None, **kwargs) -> str:
+    """ Create a custom API that matches Guardrail.ai requirements, based on an instantiated llm pipeline."""
+    # this needs to match the name tag in the RAIL string
+    dict_text = {"summarize_statement": flan_pipeline(prompt)[0]["summary_text"]}
+    json_text = json.dumps(dict_text)
+        
+    return json_text
+
 
 
 def _my_llm_api(prompt: str, **kwargs) -> str:
@@ -54,6 +103,11 @@ def _my_llm_api(prompt: str, **kwargs) -> str:
     # this needs to match the name tag in the RAIL string
     dict_text = {"summarize_statement": flan_pipeline(prompt)[0]["summary_text"]}
     json_text = json.dumps(dict_text)
+    
+    del tokenizer, model, flan_pipeline
+    torch.cuda.empty_cache()
+    gc.collect()
+    
     return json_text
 
 

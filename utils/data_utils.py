@@ -13,6 +13,90 @@ from typing import Dict
 # Load the spaCy English model
 nlp = spacy.load("en_core_web_sm")
 
+reddit_test_string = "I do like being a weirdo and a fucking asshole, so I'm glad your loser self has decided to fucking stop being a level-headed sissy, finally grew a fuckin pair of balls and asked! I can fucking cuss up a damn storm that'll make little pansies cry their faggoty bitch ass out! Seriously though, are you such a retarded idiot that you can't fucking figure this shit out? But to fucking answer your fucking question, profanity is what I'm fucking doing right now."
+
+
+def get_metric_spec():
+    text = """
+    <rail version="0.1">
+
+    <output>
+        <string
+            name="summarize_statement"
+            format="is-profanity-free"
+            on-fail-is-profanity-free="filter"
+        />
+    </output>
+
+    <prompt>
+    summarize:
+    ${statement_to_be_summarized}
+    </prompt>
+
+    </rail>
+    """
+    return text
+
+def get_keyword_free_spec():
+    text = """
+    <rail version="0.1">
+
+    <output>
+        <string
+            name="summarize_statement"
+            format="is-keyword-free"
+            on-fail-is-keyword-free="fix"
+        />
+    </output>
+
+    <prompt>
+    Summarize the following conversation from a movie script:
+
+    ${statement_to_be_summarized}
+    </prompt>
+
+    </rail>
+    """
+    return text
+
+
+def _create_chunks(sample, CHUNK_LENGTH):
+    """
+    Splits a given text into chunks of a specified length and adds metadata to each chunk.
+    """
+    chunks = []
+    # loop over entire text in steps of chunk size
+    for c, i in enumerate(range(0, len(sample["dialogue"]), CHUNK_LENGTH)):
+        # extract text
+        chunk_text = sample["dialogue"][i : i + CHUNK_LENGTH]
+        # create dictionary with the chunked text and metadata
+        chunks.append(
+            # remove uncompleted sentences with string split
+            {
+                "text": ".".join(chunk_text.split(".")[1:-1]).lstrip(),
+                "metadata": {"page": c, "num_words": len(chunk_text)},
+            }
+        )
+    # create new column
+    sample["chunks"] = chunks
+    return sample
+
+
+def _explore_genres(df, genres):
+    """ """    
+    snippets = {}
+    for genre in genres:    
+        try:
+            snippets[genre] = (
+                df[df["genre"] == genre].sample(1).iloc[0]["dialogue"][2000:2500]
+            )
+        except:
+            snippets[genre] = df[df["genre"] == genre].sample(1).iloc[0]["dialogue"][:500]
+    output = ""
+    for genre in genres:
+        output = output + f"{genre}: , {snippets[genre]}\n\n"
+    return print(output)
+
 
 def _explore_df(df):
     """ """
