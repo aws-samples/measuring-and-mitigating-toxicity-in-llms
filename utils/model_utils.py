@@ -93,6 +93,7 @@ def _my_llm_api(prompt: str, **kwargs) -> str:
         torch_dtype=torch.float16,
         trust_remote_code=True,
         tokenizer=tokenizer,
+        do_sample=False,
         num_beams=4,
         min_length=50,
         max_length=150,

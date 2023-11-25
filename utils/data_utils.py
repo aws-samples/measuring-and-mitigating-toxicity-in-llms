@@ -13,10 +13,10 @@ from typing import Dict
 # Load the spaCy English model
 nlp = spacy.load("en_core_web_sm")
 
-reddit_test_string = "I do like being a weirdo and a fucking asshole, so I'm glad your loser self has decided to fucking stop being a level-headed sissy, finally grew a fuckin pair of balls and asked! I can fucking cuss up a damn storm that'll make little pansies cry their faggoty bitch ass out! Seriously though, are you such a retarded idiot that you can't fucking figure this shit out? But to fucking answer your fucking question, profanity is what I'm fucking doing right now."
+_reddit_test_string = """I do like being a weirdo and a fucking asshole, so I'm glad your loser self has decided to fucking stop being a level-headed sissy, finally grew a fuckin pair of balls and asked! I can fucking cuss up a damn storm that'll make little pansies cry their faggoty bitch ass out! Seriously though, are you such a retarded idiot that you can't fucking figure this shit out? But to fucking answer your fucking question, profanity is what I'm fucking doing right now, using words that "polite society" doesn't have the balls to say, or those sons-of-bitches think are too fucking crude. Yes, "fuck" is a very versatile word which is why I'm using the fuck out of it, but there are other words like Marissa Pitts have fucking said, although some are just minor put downs or even some shit that doesn't fucking make a goddamn bit of sense... "Cult"? Really? Also it depends on the fucking culture, like Brit motherfuckers (AKA limeys) like to say cunt like they're fucking greeting their grandma and shit, but in the US it's as bad as calling a black dude a nigger, and you can REALLY fucking piss a black girl off by calling her a fucking "nigger cunt". Likewise, the fucking Brits can turn around and say "wanker", "quim", "pillock", "gobshite", "twit", and bloody 'ell, even "pony" for "pony and trap", rhyming slang for "crap". What about the fucking Germans? Sure, you can fucking call a kraut a nazi, but you can fucking say some weird ass shit like they like warm showers (warmduscher, or someone that's a fucking pansy because they can't shower with cold water... Hell, I'm a kaltduscher when I fucking work the shit out of myself at the fucking gym or even when I see a sexy bitch and I can't fuck her), a dumbass that irons their fucking socks (sockenbügler, because they're too obsessed with looking neat), someone who waves at the Teletubbies (Teletubbyzurückwinker, or a fucking retard), and all that shit. Does all this shit answer your fucking question?"""
 
 
-def get_metric_spec():
+def _get_metric_spec():
     text = """
     <rail version="0.1">
 
@@ -29,7 +29,6 @@ def get_metric_spec():
     </output>
 
     <prompt>
-    summarize:
     ${statement_to_be_summarized}
     </prompt>
 
@@ -37,7 +36,7 @@ def get_metric_spec():
     """
     return text
 
-def get_keyword_free_spec():
+def _get_keyword_free_spec():
     text = """
     <rail version="0.1">
 
@@ -50,8 +49,6 @@ def get_keyword_free_spec():
     </output>
 
     <prompt>
-    Summarize the following conversation from a movie script:
-
     ${statement_to_be_summarized}
     </prompt>
 
