@@ -1,9 +1,20 @@
+#!/usr/bin/env python3
+
 import evaluate
 import torch
 
 
 def _evaluate_toxicity(text=[], aggregation_method=None):
-    """ """
+    """
+    Evaluate toxicity of a list of text strings using a pre-trained model.
+
+    Args:
+        text (list): List of text strings to evaluate for toxicity.
+        aggregation_method (str): Method for aggregating toxicity scores.
+
+    Returns:
+        float: Toxicity score based on the specified aggregation method.
+    """
     # specify model name
     toxicity_model_name = "facebook/roberta-hate-speech-dynabench-r4-target"
 
@@ -30,11 +41,26 @@ def _evaluate_toxicity(text=[], aggregation_method=None):
 
 
 def _add_toxicty_column(data, column_to_evaluate="dialogue"):
-    """ """
+    """
+    Add a toxicity score column to a dataset based on the specified column.
+
+    Args:
+        data (Dataset): The input dataset.
+        column_to_evaluate (str): The name of the column in the dataset to evaluate for toxicity.
+
+    Returns:
+        data (Dataset): The input dataset with an additional "toxicity_score" column.
+    """
 
     def _add_toxicity_score(sample):
         """
-        Function to create summaries of the movie dialogue dataset.
+        Add toxicity score to a single sample in the dataset.
+
+        Args:
+            sample (dict): A dictionary representing a single sample in the dataset.
+
+        Returns:
+            dict: The sample dictionary with an added "tox_score" key containing the toxicity score.
         """
         # calculate toxicity score
         sample["tox_score"] = _evaluate_toxicity(sample[column_to_evaluate])
@@ -42,7 +68,13 @@ def _add_toxicty_column(data, column_to_evaluate="dialogue"):
 
     def _group_batch(batch):
         """
-        Function to batch datapoints for faster evaluation.
+        Group datapoints into batches for faster toxicity evaluation.
+
+        Args:
+            batch (dict): A dictionary containing batched data.
+
+        Returns:
+            dict: The batched data.
         """
         return {k: [v] for k, v in batch.items()}
 

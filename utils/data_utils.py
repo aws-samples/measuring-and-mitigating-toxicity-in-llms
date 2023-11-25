@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pandas as pd
 import ast
 from convokit import Corpus, download
@@ -17,6 +19,9 @@ _reddit_test_string = """I do like being a weirdo and a fucking asshole, so I'm 
 
 
 def _get_metric_spec():
+    """
+    Rail spec template that applies filter upon fail condition.
+    """
     text = """
     <rail version="0.1">
 
@@ -36,7 +41,11 @@ def _get_metric_spec():
     """
     return text
 
+
 def _get_keyword_free_spec():
+    """
+    Rail spec template that applies fix upon fail condition.
+    """
     text = """
     <rail version="0.1">
 
@@ -80,15 +89,19 @@ def _create_chunks(sample, CHUNK_LENGTH):
 
 
 def _explore_genres(df, genres):
-    """ """    
+    """
+    Method that samples text snippets from a movie dialogue after filtering for specified genre.
+    """
     snippets = {}
-    for genre in genres:    
+    for genre in genres:
         try:
             snippets[genre] = (
                 df[df["genre"] == genre].sample(1).iloc[0]["dialogue"][2000:2500]
             )
         except:
-            snippets[genre] = df[df["genre"] == genre].sample(1).iloc[0]["dialogue"][:500]
+            snippets[genre] = (
+                df[df["genre"] == genre].sample(1).iloc[0]["dialogue"][:500]
+            )
     output = ""
     for genre in genres:
         output = output + f"{genre}: , {snippets[genre]}\n\n"
@@ -96,7 +109,9 @@ def _explore_genres(df, genres):
 
 
 def _explore_df(df):
-    """ """
+    """
+    Method that samples text snippets from movie dialogues across multiple pre-defined genres.
+    """
     try:
         crime_snippet = (
             df[df["genre"] == "action"].sample(1).iloc[0]["dialogue"][2000:2500]
@@ -119,7 +134,9 @@ def _explore_df(df):
 
 
 def _prepare_data():
-    """ """
+    """
+    Method to download Cornell movie corpus, extract the dialogue, movie name and genre to return a dataframe.
+    """
     # download data
     corpus = Corpus(filename=download("movie-corpus", verbose=False))
 
@@ -188,6 +205,9 @@ def _return_prompt_and_responses(samples, batch_multiplier) -> Dict[str, str]:
 
 
 def _replace_nouns_with_list(text, replacement_probability=0.3):
+    """
+    Method to inject toxicity into text string with user defined probability by replacing nouns.
+    """
     # open file from code package that contains profanities
     with open(
         os.path.dirname(better_profanity.__file__) + "/profanity_wordlist.txt", "r"
@@ -215,6 +235,9 @@ def _replace_nouns_with_list(text, replacement_probability=0.3):
 
 
 def _map_columns(sample):
+    """
+    Method to overwrite non-toxic summary with toxicity injected summaries for educational purpose.
+    """
     if sample["genre"] in ["action", "crime"]:
         sample["summary"] = sample["toxic_summary"]
     else:
